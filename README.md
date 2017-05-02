@@ -10,13 +10,13 @@
 * Martijn Wieling
 
 ### Important dates
-| Event                               | Date               | Venue (optional) |
+| Event                               | Date & Time              | Venue (optional) |
 | ----------------------------------- | ------------------ | ---------------- | 
 | Training data release (phase 1)     | March 2017         |                  |
 | Training data release (phase 2)     | April 2017         |                  |
-| **Group meeting**                   | **May 3, 2017**    | ???              |
-| **Group meeting**                   | **May 10, 2017**   | 1311.434         |
-| **Group meeting**                   | **May 17, 2017**   | ???              |
+| **Group meeting**                   | **May 3, 2017**, 10:00  | ???              |
+| **Group meeting**                   | **May 10, 2017**, 13:30   | 1311.434         |
+| **Group meeting**                   | **May 17, 2017**, 10:00 | ???              |
 | Test set release                    | June 19, 2017      |                  |
 | Result notification                 | June 26, 2017      |                  |   
 | Draft System Description papers due | July 05, 2017      |                  |

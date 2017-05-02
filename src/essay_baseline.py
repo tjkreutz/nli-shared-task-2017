@@ -352,7 +352,7 @@ if __name__ == '__main__':
     # Train the model
     # Check the scikit-learn documentation for other models
     print("Training the classifier...")
-    params = [{'C': [1.0, 5.0, 10.0, 25.0, 50.0, 100.0]}]
+    #params = [{'C': [1.0, 5.0, 10.0, 25.0, 50.0, 100.0]}]
 
     clf = LinearSVC()
     #clf = GridSearchCV(estimator=svc, param_grid=params)
