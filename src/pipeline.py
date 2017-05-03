@@ -9,10 +9,11 @@ Example invocations:
     Run with precomputed features:
         $ python pipeline.py [--train] [--test dev] [--preprocessor] --training_features path/to/train/featurefile --test_features /path/to/test/featurefile
 """
-import argparse
-import csv
 import os
+import csv
+import argparse
 from time import strftime
+from features import *
 from sklearn import metrics
 from sklearn.datasets import dump_svmlight_file, load_svmlight_file
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -142,6 +143,7 @@ def load_features_and_labels(train_partition, test_partition, training_feature_f
 
     features = FeatureUnion([
         ('char_ngrams', TfidfVectorizer(input="filename", ngram_range=(1, 9), analyzer="char", binary=True)),
+        ('average_word_length', AverageWordLength()),
     ])
 
     features.fit(training_files)
