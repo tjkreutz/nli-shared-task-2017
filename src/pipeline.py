@@ -4,24 +4,21 @@
 This script requires Python 3 and the scikit-learn package. See the README file for more details.
 Example invocations:
     Generate the features from the tokenized essays:
-        $ python essay_baseline.py [--train ] [--test] [--preprocessor]
+        $ python pipeline.py [--train ] [--test] [--preprocessor]
 
     Run with precomputed features:
-        $ python essay_baseline.py [--train] [--test dev] [--preprocessor] --training_features path/to/train/featurefile --test_features /path/to/test/featurefile
+        $ python pipeline.py [--train] [--test dev] [--preprocessor] --training_features path/to/train/featurefile --test_features /path/to/test/featurefile
 """
 import argparse
 import csv
 import os
-import nltk
-import json
 from time import strftime
 from sklearn import metrics
 from sklearn.datasets import dump_svmlight_file, load_svmlight_file
-from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer, TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import Normalizer
 from sklearn.svm import LinearSVC
 from sklearn.pipeline import FeatureUnion
-from sklearn.model_selection import GridSearchCV
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 CLASS_LABELS = ['ARA', 'CHI', 'FRE', 'GER', 'HIN', 'ITA', 'JPN', 'KOR', 'SPA', 'TEL', 'TUR']  # valid labels
@@ -143,14 +140,14 @@ def load_features_and_labels(train_partition, test_partition, training_feature_f
           .format(len(training_files), train_partition, len(test_files), test_partition))
     print("Loading training and testing data from {} & {}".format(train_partition, test_partition))
 
-    #char_ngrams = TfidfVectorizer(input="filename", ngram_range=(1,3), analyzer="char")
-    word_ngrams = TfidfVectorizer(input="filename", ngram_range=(1,3), analyzer="word", binary=True)
-    word_ngrams.fit(training_files)
+    features = FeatureUnion([
+        ('char_ngrams', TfidfVectorizer(input="filename", ngram_range=(1, 9), analyzer="char", binary=True)),
+    ])
 
-    training_matrix, encoded_training_labels, vectorizer = load_unigrams(training_files,
-                                                                         training_labels,
-                                                                         vectorizer=word_ngrams)
-    test_matrix, encoded_test_labels,  _ = load_unigrams(test_files, test_labels, vectorizer)
+    features.fit(training_files)
+
+    training_matrix, encoded_training_labels, vectorizer = transform_data(training_files, training_labels, features)
+    test_matrix, encoded_test_labels,  _ = transform_data(test_files, test_labels, features)
 
     #
     # Write features to feature files
@@ -177,7 +174,7 @@ def load_features_and_labels(train_partition, test_partition, training_feature_f
             (test_matrix, encoded_test_labels, test_labels)]
 
 
-def load_unigrams(file_list, labels, vectorizer=None):
+def transform_data(file_list, labels, features):
     """
     This function creates a document-term matrix, given a CSV index file listing the documents and a file dictionary of
     available files.
@@ -195,10 +192,9 @@ def load_unigrams(file_list, labels, vectorizer=None):
         Correct class labels corresponding with the essays in `file_list`. These will be encoded as integers for saving
         in svm_light format.
 
-    vectorizer: Vectorizer object or NoneType, None by default.
+    vectorizer: Transformer object.
         Object to convert a collection of text documents to a matrix. Must have fit, transform, and fit_transform
-        methods implemented. If no vectorizer is provided, this function will use sklearn's CountVectorizer. The
-        vectorizer that is fit on the training data should be re-used for the testing data.
+        methods implemented.
 
     Returns
     -------
@@ -206,78 +202,18 @@ def load_unigrams(file_list, labels, vectorizer=None):
         -doc-term matrix (numpy array), 
         -list of correct labels encoded as ints, 
         -list of labels as strings,
-        -vectorizer instance
+        -transformer instance
 
     """
     # convert label strings to integers
     labels_encoded = [CLASS_LABELS.index(label) for label in labels]
-    if vectorizer is None:
-        vectorizer = CountVectorizer(input="filename")  # create a new one
-        doc_term_matrix = vectorizer.fit_transform(file_list)
-    else:
-        doc_term_matrix = vectorizer.transform(file_list)
+    doc_term_matrix = features.transform(file_list)
 
     print("Created a document-term matrix with %d rows and %d columns." 
           % (doc_term_matrix.shape[0], doc_term_matrix.shape[1]))
 
-    return doc_term_matrix.astype(float), labels_encoded, vectorizer
+    return doc_term_matrix.astype(float), labels_encoded, features
 
-def get_dict_features(filename, st):
-    with open(filename, "r") as f:
-        text = f.read()
-
-    feats = {}
-
-    chars = [char for char in text] # get characters from raw text
-    tags = nltk.pos_tag(nltk.word_tokenize(text)) # get POS tags
-    tok_trigrams = ngrams(tags, 3) # make word trigrams
-    char_trigrams = ngrams(chars, 3) # make char trigrams
-
-    for i, tok in enumerate(tok_trigrams):
-        feats["word_{}".format(str(i))] = (tok[0][0])
-        feats["pos_{}".format(str(i))] = (tok[0][1])
-        feats["word_{}".format(str(i))] = (tok[0][0])
-        feats["pos_{}_pos_{}".format(str(i), str(i+1))] = (tok[0][1], tok[1][1])
-        feats["word_{}_word_{}_word_{}".format(str(i), str(i+1), str(i+2))] = (tok[0][0], tok[1][0], tok[2][0])
-        feats["pos_{}_pos_{}_pos_{}".format(str(i), str(i+1), str(i+2))] = (tok[0][1], tok[1][1], tok[2][1])
-        try:
-            feats["stem_{}".format(str(i))] = (st.stem(tok[0][0]))
-            feats["stem_{}_stem_{}".format(str(i), str(i+1))] = (st.stem(tok[0][0]), st.stem(tok[1][0]))
-            feats["stem_{}_stem_{}_stem_{}".format(str(i), str(i+1), str(i+2))] = (st.stem(tok[0][0]), st.stem(tok[1][0]), st.stem(tok[2][0]))
-        except IndexError:
-            feats["stem_{}".format(str(i))] = (tok[0][0])
-            feats["stem_{}".format(str(i))] = (tok[0][0])
-            feats["stem_{}_stem_{}_stem_{}".format(str(i), str(i+1), str(i+2))] = (tok[0][0], tok[1][0], tok[2][0])
-
-
-
-    for char in char_trigrams:
-        feats["char_{}".format(str(i))] = (char[0])
-        feats["char_{}_char_{}".format(str(i), str(i+1))] = (char[0], char[1])
-        feats["char_{}_char_{}_char_{}".format(str(i), str(i+1), str(i+2))] = (char[0], char[1], char[2])
-
-    print("Made {} features for {}.".format(len(feats.keys()), filename))
-
-    return feats
-
-def get_list_features(filename, st):
-    with open(filename, "r") as f:
-        text = f.read()
-
-    feats = ""
-
-    tags = nltk.pos_tag(nltk.word_tokenize(text))
-    for tag in tags:
-        #chars = [char for char in tag[0]]
-        #char_trigrams = ngram(chars, 3)
-        try:
-            feats = feats+"{}_{}_{} ".format(tag[0], st.stem(tag[0]), tag[1])
-        except IndexError:
-            feats = feats+"{}_{}_{} ".format(tag[0], tag[0], tag[1])
-
-    print("Wrote features for {}.".format(filename))
-
-    return feats
 
 def pretty_print_cm(cm, class_labels):
     row_format = "{:>5}" * (len(class_labels) + 1)
