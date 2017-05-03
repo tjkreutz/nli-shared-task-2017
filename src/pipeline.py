@@ -142,8 +142,9 @@ def load_features_and_labels(train_partition, test_partition, training_feature_f
     print("Loading training and testing data from {} & {}".format(train_partition, test_partition))
 
     features = FeatureUnion([
+        ('pos_ngrams', POSVectorizer(input="filename", ngram_range=(1, 3), analyzer="word", binary=True)),
         ('char_ngrams', TfidfVectorizer(input="filename", ngram_range=(1, 9), analyzer="char", binary=True)),
-        ('average_word_length', AverageWordLength()),
+#        ('average_word_length', AverageWordLength()),
     ])
 
     features.fit(training_files)
