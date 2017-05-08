@@ -18,16 +18,12 @@ class AverageWordLength(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
         return self
 
+
 class POSVectorizer(TfidfVectorizer):
     """ adds postags, learns weights """
 
     def postag(self, X):
-<<<<<<< HEAD
-        new_X = [x.split() for x in X]
-        new_X = pos_tag_sents(new_X)
-=======
         new_X = pos_tag_sents([x.split() for x in X])
->>>>>>> 39c32e0e5b5e90b8b06eae3096eadab4383ab0c2
         new_X = [' '.join([tt[1] for tt in doc]) for doc in new_X]
         return new_X
 
