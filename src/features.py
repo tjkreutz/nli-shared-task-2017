@@ -1,8 +1,8 @@
 #!usr/bin/python3
 
 import numpy as np
-from nltk.tag import tnt
-from nltk.corpus import treebank
+from nltk.tag import pos_tag_sents
+#from nltk.corpus import treebank
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.feature_extraction.text import TfidfVectorizer
 
@@ -21,23 +21,14 @@ class AverageWordLength(BaseEstimator, TransformerMixin):
 
 
 class POSVectorizer(TfidfVectorizer):
-    """outputs average word length per document"""
-
-    def __init__(self, *args, **kwargs):
-        super(POSVectorizer, self).__init__(*args, **kwargs)
-        self.postagger = self.train_postagger()
-
-    def train_postagger(self):
-        t = tnt.TnT()
-        t.train(treebank.tagged_sents())
-        return t
-
-    def postag(self, x):
-        return [tt[1] for tt in self.postagger.tag(x)]
+    """ adds postags, learns weights """
 
     def transform(self, X, y=None):
-        X = [[self.postag(x)] for x in X]
-        return super(POSVectorizer, self).transform(X, y)
+        new_X = pos_tag_sents(X)
+        new_X = [[' '.join([tt[1] for tt in doc])] for doc in new_X] 
+        return super(POSVectorizer, self).transform(new_X, y)
 
     def fit(self, X, y=None):
-        return self
+        new_X = pos_tag_sents(X)
+        new_X = [[' '.join([tt[1] for tt in doc])] for doc in new_X] 
+        return super(POSVectorizer, self).fit(new_X,y)

@@ -141,16 +141,25 @@ def load_features_and_labels(train_partition, test_partition, training_feature_f
           .format(len(training_files), train_partition, len(test_files), test_partition))
     print("Loading training and testing data from {} & {}".format(train_partition, test_partition))
 
+    training_data, test_data = [],[]
+    for f in training_files:
+        with open(f) as doc:
+            training_data.append(doc.read())
+
+    for f in test_files:
+        with open(f) as doc:
+            test_data.append(doc.read())
+
     features = FeatureUnion([
-        ('pos_ngrams', POSVectorizer(input="filename", ngram_range=(1, 3), analyzer="word", binary=True)),
-        ('char_ngrams', TfidfVectorizer(input="filename", ngram_range=(1, 9), analyzer="char", binary=True)),
-#        ('average_word_length', AverageWordLength()),
+        ('pos_ngrams', POSVectorizer(ngram_range=(1, 2), analyzer="word")),
+        ('char_ngrams', TfidfVectorizer(input="filename", ngram_range=(1, 7), analyzer="char", binary=True)),
+        #('average_word_length', AverageWordLength()),
     ])
 
-    features.fit(training_files)
+    features.fit(training_data)
 
-    training_matrix, encoded_training_labels, vectorizer = transform_data(training_files, training_labels, features)
-    test_matrix, encoded_test_labels,  _ = transform_data(test_files, test_labels, features)
+    training_matrix, encoded_training_labels, vectorizer = transform_data(training_data, training_labels, features)
+    test_matrix, encoded_test_labels,  _ = transform_data(test_data, test_labels, features)
 
     #
     # Write features to feature files
