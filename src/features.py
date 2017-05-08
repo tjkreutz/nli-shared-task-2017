@@ -24,7 +24,7 @@ class POSVectorizer(TfidfVectorizer):
 
     def postag(self, X):
         new_X = [x.split() for x in X]
-        new_X = pos_tag_sents(X)
+        new_X = pos_tag_sents(new_X)
         new_X = [' '.join([tt[1] for tt in doc]) for doc in new_X]
         return new_X
 
