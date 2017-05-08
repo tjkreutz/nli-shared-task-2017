@@ -2,7 +2,6 @@
 
 import numpy as np
 from nltk.tag import pos_tag_sents
-#from nltk.corpus import treebank
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.feature_extraction.text import TfidfVectorizer
 
@@ -23,8 +22,7 @@ class POSVectorizer(TfidfVectorizer):
     """ adds postags, learns weights """
 
     def postag(self, X):
-        new_X = [x.split() for x in X]
-        new_X = pos_tag_sents(X)
+        new_X = pos_tag_sents([x.split() for x in X])
         new_X = [' '.join([tt[1] for tt in doc]) for doc in new_X]
         return new_X
 
@@ -34,6 +32,6 @@ class POSVectorizer(TfidfVectorizer):
 
     def fit(self, X, y=None):
         X = self.postag(X)
-        return super(POSVectorizer, self).fit(X,y)
+        return super(POSVectorizer, self).fit(X, y)
 
 
