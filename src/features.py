@@ -1,6 +1,7 @@
 #!usr/bin/python3
 
 import numpy as np
+import json
 from nltk.tag import pos_tag_sents
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -34,5 +35,28 @@ class POSVectorizer(TfidfVectorizer):
     def fit(self, X, y=None):
         X = self.postag(X)
         return super(POSVectorizer, self).fit(X, y)
+
+class PromptWordVectorizer(TfidfVectorizer):
+    """ adds postags, learns weights """
+
+    with open("keywords.json", "r") as f:
+        keywords = json.load(f)
+
+    def filterpw(self, X):
+        new_X = [x.split() for x in X]
+        for doc in new_X:
+            for t in doc:
+                if t in keywords:
+                    t = '<PW>'
+        new_X = [' '.join([t for t in doc]) for doc in new_X]
+        return new_X
+
+    def transform(self, X, y=None):
+        X = self.filterpw(X)
+        return super(PromptWordVectorizer, self).transform(X, y)
+
+    def fit(self, X, y=None):
+        X = self.filterpw(X)
+        return super(PromptWordVectorizer, self).fit(X, y)
 
 
