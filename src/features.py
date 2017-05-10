@@ -39,16 +39,16 @@ class POSVectorizer(TfidfVectorizer):
 class PromptWordVectorizer(TfidfVectorizer):
     """ adds postags, learns weights """
 
-    with open("keywords.json", "r") as f:
-        keywords = json.load(f)
-
     def filterpw(self, X):
-        new_X = [x.split() for x in X]
-        for doc in new_X:
-            for t in doc:
-                if t in keywords:
-                    t = '<PW>'
-        new_X = [' '.join([t for t in doc]) for doc in new_X]
+        new_X = []
+        with open("keywords.json", "r") as f:
+            keywords = json.load(f)
+        for doc in X:
+            words = doc.split()
+            for t in range(len(words)):
+                if words[t] in keywords:
+                    words[t] = '<PW>'
+            new_X.append(' '.join(words))
         return new_X
 
     def transform(self, X, y=None):

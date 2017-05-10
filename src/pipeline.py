@@ -151,7 +151,7 @@ def load_features_and_labels(train_partition, test_partition, training_feature_f
             test_data.append(doc.read())
 
     features = FeatureUnion([
-        ('char_ngrams', TfidfVectorizer(ngram_range=(1, 9), analyzer="char", binary=True)),
+        ('char_ngrams', PromptWordVectorizer(ngram_range=(1, 9), analyzer="char", binary=True)),
         #('pos_ngrams', POSVectorizer(ngram_range=(1, 4), analyzer="word")),
         #('average_word_length', AverageWordLength()),
     ])
