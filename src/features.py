@@ -2,6 +2,7 @@
 
 import numpy as np
 import json
+import functools
 from nltk.tag import pos_tag_sents
 from nltk.util import skipgrams
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -65,32 +66,23 @@ class PromptWordVectorizer(TfidfVectorizer):
 class SkipgramVectorizer(TfidfVectorizer):
     """ Learns weights for skipgrams """
 
-    def __init__(self, n=2, k=2, *args, **kwargs):
+    def __init__(self, n=2, k=2, base_analyzer='word', *args, **kwargs):
         super(SkipgramVectorizer, self).__init__(*args, **kwargs)
+        # we only use the parent for learning weights, chars can be used but the implementation lies in our custom
+        # function, not with the tfidfvectorizer
         self.n = n
         self.k = k
-        self.base_analyzer = self.analyzer
-        # we only use the parent for learning weights, chars can be used but the implementation lies in our custom
-        # function, not with the tfidfvectorizer. Same goes for ngram-range. Should not be used. Looking into better
-        # ways of doing this.
-        self.analyzer = 'word'
-        self.ngram_range = (1, 1)
+        self.base_analyzer = base_analyzer
 
-    def generate_skipgrams(self, X):
+    def generate_skipgrams(self, x):
         if self.base_analyzer == 'char':
-            sg = [list(skipgrams(x, self.n, self.k)) for x in X]
+            return skipgrams(x, n=self.n, k=self.k)
         else:
-            sg = [list(skipgrams(x.split(), self.n, self.k)) for x in X]
-        newX = [' '.join([''.join(unit) for unit in x]) for x in sg]
-        return newX
+            return skipgrams(x.split(), n=self.n, k=self.k)
 
-    def transform(self, X, y=None):
-        X = self.generate_skipgrams(X)
-        return super(SkipgramVectorizer, self).transform(X, y)
+    def build_analyzer(self):
+        return self.generate_skipgrams
 
-    def fit(self, X, y=None):
-        X = self.generate_skipgrams(X)
-        return super(SkipgramVectorizer, self).fit(X, y)
 
 
 
