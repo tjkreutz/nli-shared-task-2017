@@ -2,7 +2,7 @@
 
 import numpy as np
 import json
-import functools
+import enchant
 from nltk.tag import pos_tag_sents
 from nltk.util import skipgrams
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -17,6 +17,25 @@ class AverageWordLength(BaseEstimator, TransformerMixin):
 
     def transform(self, X, y=None):
         return [[self.average_word_length(x)] for x in X]
+
+    def fit(self, X, y=None):
+        return self
+
+class AverageMisspellings(BaseEstimator, TransformerMixin):
+    """outputs average word length per document"""
+
+    def average_misspellings(self, x):
+        d = enchant.Dict("en_US")
+        counter = 0
+        toks = x.split()
+        for tok in toks:
+            if d.check(tok) == False:
+                counter+=1
+
+        return counter/len(toks)
+
+    def transform(self, X, y=None):
+        return [[self.average_misspellings(x)] for x in X]
 
     def fit(self, X, y=None):
         return self
