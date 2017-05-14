@@ -2,6 +2,7 @@
 
 import numpy as np
 import json
+import enchant
 from nltk.tag import pos_tag_sents
 from nltk.util import skipgrams
 from sklearn.base import BaseEstimator, TransformerMixin
