@@ -18,11 +18,13 @@ from sklearn import metrics
 from sklearn.datasets import dump_svmlight_file, load_svmlight_file
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import Normalizer
+from sklearn.svm import SVC
 from sklearn.svm import LinearSVC
 from sklearn.pipeline import FeatureUnion
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 CLASS_LABELS = ['ARA', 'CHI', 'FRE', 'GER', 'HIN', 'ITA', 'JPN', 'KOR', 'SPA', 'TEL', 'TUR']  # valid labels
+RECLASSIFY_LABELS = [('HIN', 'TEL')]  # groups of labels we want to reclassify
 
 
 def load_features_and_labels(train_partition, test_partition, training_feature_file,
@@ -235,6 +237,45 @@ def pretty_print_cm(cm, class_labels):
         print(row_format.format(l1, *row))
 
 
+def repredict_labels(clf, predicted, labels, training_matrix, test_matrix, encoded_training_labels):
+    print("Repredicting labels between {0}".format(' and '.join(labels)))
+
+    encoded_reclassify_labels = [CLASS_LABELS.index(label) for label in labels]
+
+    retraining_indices = [i for i in range(len(encoded_training_labels)) if
+                          encoded_training_labels[i] in encoded_reclassify_labels]
+    retest_indices = [i for i in range(len(predicted)) if predicted[i] in encoded_reclassify_labels]
+
+    retraining_docs = training_matrix[retraining_indices]
+    retraining_labels = [encoded_training_labels[i] for i in retraining_indices]
+    retraining_features = clf.predict_proba(retraining_docs)
+
+    retest_docs = test_matrix[retest_indices]
+    retest_features = clf.predict_proba(retest_docs)
+
+    reclf = LinearSVC()
+    reclf.fit(retraining_features, retraining_labels)
+    repredicted = reclf.predict(retest_features)
+
+    for i in range(len(retest_indices)):
+        original_index = retest_indices[i]
+        predicted[original_index] = repredicted[i]
+
+    return predicted
+
+
+def reclassify(predicted, training_matrix, test_matrix, encoded_training_labels):
+    print("Retraining the classifier...")
+
+    newclf = SVC(kernel='linear', probability=True)
+    newclf.fit(training_matrix, encoded_training_labels)
+
+    for labels in RECLASSIFY_LABELS:
+        predicted = repredict_labels(newclf, predicted, labels, training_matrix, test_matrix, encoded_training_labels)
+
+    return predicted
+
+
 if __name__ == '__main__':
     p = argparse.ArgumentParser()
     
@@ -307,7 +348,14 @@ if __name__ == '__main__':
     #clf = GridSearchCV(estimator=svc, param_grid=params)
     clf.fit(training_matrix, encoded_training_labels)  # Linear kernel SVM
     predicted = clf.predict(testing_matrix)
-    
+
+    #
+    # Reclassify given labels. This uses a stacking approach: a probability disctribution prediction for each label
+    # is used as features. Reusing classify for labels that are often confused may be better than adding to
+    # RECLASSIFY_LABELS.
+    #
+    predicted = reclassify(predicted, training_matrix, testing_matrix, encoded_training_labels)
+
     #
     # Write Predictions File
     #
