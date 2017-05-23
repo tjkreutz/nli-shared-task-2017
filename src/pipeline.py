@@ -18,7 +18,7 @@ from sklearn import metrics
 from sklearn.datasets import dump_svmlight_file, load_svmlight_file
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import Normalizer
-from sklearn.svm import SVC
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.svm import LinearSVC
 from sklearn.pipeline import FeatureUnion
 
@@ -264,14 +264,11 @@ def repredict_labels(clf, predicted, labels, training_matrix, test_matrix, encod
     return predicted
 
 
-def reclassify(predicted, training_matrix, test_matrix, encoded_training_labels):
+def reclassify(clf, predicted, training_matrix, test_matrix, encoded_training_labels):
     print("Retraining the classifier...")
 
-    newclf = SVC(kernel='linear', probability=True)
-    newclf.fit(training_matrix, encoded_training_labels)
-
     for labels in RECLASSIFY_LABELS:
-        predicted = repredict_labels(newclf, predicted, labels, training_matrix, test_matrix, encoded_training_labels)
+        predicted = repredict_labels(clf, predicted, labels, training_matrix, test_matrix, encoded_training_labels)
 
     return predicted
 
@@ -344,9 +341,10 @@ if __name__ == '__main__':
     print("Training the classifier...")
     #params = [{'C': [1.0, 5.0, 10.0, 25.0, 50.0, 100.0]}]
 
-    clf = LinearSVC(multi_class='crammer_singer')
+    svm = LinearSVC(multi_class='crammer_singer')
+    clf = CalibratedClassifierCV(svm)
     #clf = GridSearchCV(estimator=svc, param_grid=params)
-    clf.fit(training_matrix, encoded_training_labels)  # Linear kernel SVM
+    clf.fit(training_matrix, encoded_training_labels)
     predicted = clf.predict(testing_matrix)
 
     #
@@ -354,7 +352,7 @@ if __name__ == '__main__':
     # is used as features. Reusing classify for labels that are often confused may be better than adding to
     # RECLASSIFY_LABELS.
     #
-    predicted = reclassify(predicted, training_matrix, testing_matrix, encoded_training_labels)
+    predicted = reclassify(clf, predicted, training_matrix, testing_matrix, encoded_training_labels)
 
     #
     # Write Predictions File
