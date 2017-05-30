@@ -12,6 +12,7 @@ Example invocations:
 import os
 import csv
 import argparse
+import numpy as np
 from time import strftime
 from features import *
 from sklearn import metrics
@@ -157,8 +158,8 @@ def load_features_and_labels(train_partition, test_partition, training_feature_f
 
     features = FeatureUnion([
         #('word_skipgrams', SkipgramVectorizer(n=2, k=2, base_analyzer='word', binary=True, min_df=5)),
-        ('char_ngrams', TfidfVectorizer(ngram_range=(3, 8), analyzer="char", binary=True)),
-        ('ipa_ngrams', IPAVectorizer(ngram_range=(1, 3), analyzer="word", binary=False)),
+        ('char_ngrams', TfidfVectorizer(analyzer="word", binary=False))
+        #('ipa_ngrams', IPAVectorizer(ngram_range=(1, 3), analyzer="word", binary=False)),
         #('pos_ngrams', POSVectorizer(ngram_range=(1, 4), analyzer="word")),
         #('average_word_length', AverageWordLength()),
     ])
@@ -277,18 +278,64 @@ def reclassify(clf, predicted, training_matrix, test_matrix, encoded_training_la
     return predicted
 
 
-def leave_prompt_out(feature_matrix, labels, prompts, leave_out):
+def leave_prompt_out(feature_matrix, labels, prompts, leave_out, include=False):
 
-    X = []
-    y = []
+    X, y, Xout, yout = [], [], [], []
 
     for i, prompt in enumerate(prompts):
         if prompt != leave_out:
             X.append(feature_matrix[i])
             y.append(labels[i])
+        else:
+            Xout.append(feature_matrix[i])
+            yout.append(labels[i])
 
-    return X, y
+    if include: 
+        return X, y, Xout, yout
+    else: 
+        return X, y
 
+def prompt_cross_val(training_features, test_features, training_labels, test_labels, training_prompts, test_prompts, keep_in_dev=True):
+
+    scores = []
+    training_features = training_features.toarray()
+    test_features = test_features.toarray()
+
+    loo = LeaveOneOut()
+    for prompts_in, prompt_out in loo.split(PROMPTS):
+        
+        if keep_in_dev:
+            
+            X_train, y_train = leave_prompt_out(training_features, training_labels, training_prompts, PROMPTS[int(prompt_out)])
+            X_test, y_test = leave_prompt_out(test_features, test_labels, test_prompts, PROMPTS[int(prompt_out)])
+
+        else:
+
+            features = np.concatenate((training_features, test_features), axis=0)
+            labels = training_labels+test_labels
+            prompts = training_prompts+test_prompts
+
+            X_train, y_train, X_test, y_test = leave_prompt_out(features, labels, prompts, PROMPTS[int(prompt_out)], include=True)
+
+        print("Performing cross-validation.\n")
+        print("{} ommitted.".format(PROMPTS[int(prompt_out)]))
+
+        clf = LinearSVC(multi_class='crammer_singer')
+        clf.fit(X_train, y_train)
+        predicted = clf.predict(X_test)
+
+        if -1 not in y_test:
+            print("\nConfusion Matrix:\n")
+            cm = metrics.confusion_matrix(y_test, predicted).tolist()
+            pretty_print_cm(cm, CLASS_LABELS)
+            print("\nClassification Results:\n")
+            print(metrics.classification_report(y_test, predicted, target_names=CLASS_LABELS))
+        else:
+            print("The test set labels aren't known, cannot print accuracy report.")
+
+        scores.append(clf.score(X_test, y_test))
+
+    print("Mean accuracy for prompt-out cross-validation...:\t {}".format(sum(scores)/len(scores)))
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser()
@@ -356,37 +403,13 @@ if __name__ == '__main__':
     # Train the model
     # Check the scikit-learn documentation for other models
     print("Training the classifier...")
+
+    prompt_cross_val(training_matrix, testing_matrix, encoded_training_labels, encoded_test_labels, training_prompts, test_prompts)
     #params = [{'C': [1.0, 5.0, 10.0, 25.0, 50.0, 100.0]}]
 
     #clf = LinearSVC(multi_class='crammer_singer')
     #clf = CalibratedClassifierCV(svm)
     #clf = GridSearchCV(estimator=svc, param_grid=params)
-
-    scores = []
-
-    loo = LeaveOneOut()
-    for prompts_in, prompt_out in loo.split(PROMPTS):
-        
-        X_train, y_train = leave_prompt_out(training_matrix, encoded_training_labels, prompt_out)
-        X_test, y_test = leave_prompt_out(testing_matrix, encoded_test_labels, prompt_out)
-
-        print("Performing cross-validation.\n")
-        print("{} ommitted.".format(prompt_out))
-
-        clf = LinearSVC(multi_class='crammer_singer')
-        clf.fit(X_train, y_train)
-        predicted = clf.predict(testing_matrix)
-
-        if -1 not in y_test:
-            print("\nConfusion Matrix:\n")
-            cm = metrics.confusion_matrix(y_test, predicted).tolist()
-            pretty_print_cm(cm, CLASS_LABELS)
-            print("\nClassification Results:\n")
-            print(metrics.classification_report(y_test, predicted, target_names=CLASS_LABELS))
-        else:
-            print("The test set labels aren't known, cannot print accuracy report.")
-
-    print("Mean accuracy for prompt-out cross-validation...:\t {}".format(sum(scores)/len(scores)))
 
     # clf.fit(training_matrix, encoded_training_labels)
     # predicted = clf.predict(testing_matrix)
@@ -402,12 +425,12 @@ if __name__ == '__main__':
     # Write Predictions File
     #
 
-    labels_file_path = ('{script_dir}/../data/labels/{test}/labels.{test}.csv'
-                        .format(script_dir=SCRIPT_DIR, test=test_partition_name))
+    # labels_file_path = ('{script_dir}/../data/labels/{test}/labels.{test}.csv'
+    #                     .format(script_dir=SCRIPT_DIR, test=test_partition_name))
 
-    predictions_file_name = (strftime("predictions-%Y-%m-%d-%H.%M.%S.csv") 
-                             if predictions_outfile_name is None 
-                             else predictions_outfile_name)
+    # predictions_file_name = (strftime("predictions-%Y-%m-%d-%H.%M.%S.csv") 
+    #                          if predictions_outfile_name is None 
+    #                          else predictions_outfile_name)
 
     # outfile = '{script_dir}/../predictions/essays/{pred_file}'.format(script_dir=SCRIPT_DIR, pred_file=predictions_file_name)
     # with open(outfile, 'w+', newline='', encoding='utf8') as output_file:
