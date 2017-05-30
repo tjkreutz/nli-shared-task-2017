@@ -57,6 +57,53 @@ class POSVectorizer(TfidfVectorizer):
         X = self.postag(X)
         return super(POSVectorizer, self).fit(X, y)
 
+class POSVectorizer2(TfidfVectorizer):
+    """ adds postags, learns weights """
+
+    def postag(self, X):
+        closed = ["IN", "DT", "PRP", ".", ",", "CC", "TO", "PRP$"]
+
+        tagged = pos_tag_sents([x.split() for x in X])
+        new_X = []
+        for doc in tagged:
+            out_string = []
+            for tt in doc:
+                if tt[1] in closed:
+                    out_string.append(tt[0])
+                else:
+                    out_string.append(tt[1])
+            new_X.append(' '.join(out_string))
+
+        print(new_X)
+        return new_X
+
+    def transform(self, X, y=None):
+        X = self.postag(X)
+        return super(POSVectorizer2, self).transform(X, y)
+
+    def fit(self, X, y=None):
+        X = self.postag(X)
+        return super(POSVectorizer2, self).fit(X, y)
+
+class LemmaVectorizer(TfidfVectorizer):
+    """ adds postags, learns weights """
+
+    def get_lemmas(self, X):
+
+        lem = WordNetLemmatizer()
+        new_X = [[lem.lemmatize(word.lower()) for word in x.split()] for x in X]
+        #print(new_X)
+        new_X = [' '.join(doc) for doc in new_X]
+        return new_X
+
+    def transform(self, X, y=None):
+        X = self.get_lemmas(X)
+        return super(LemmaVectorizer, self).transform(X, y)
+
+    def fit(self, X, y=None):
+        X = self.get_lemmas(X)
+        return super(LemmaVectorizer, self).fit(X, y)
+
 
 class PromptWordVectorizer(TfidfVectorizer):
     """ removes learned promptwords before training weights """
@@ -102,6 +149,26 @@ class SkipgramVectorizer(TfidfVectorizer):
     def build_analyzer(self):
         return self.generate_skipgrams
 
+class IPAVectorizer(TfidfVectorizer):
+    """ adds postags, learns weights """
+
+    def get_ipa(self, X):
+        #new_X = [check_output(["espeak", "-q", "--ipa", '-v', 'en-us', x]).decode('utf-8') for x in X]
+        new_X = []
+        for x in X:
+            ipa = check_output(["espeak", "-q", "--ipa=1", '-v', 'en-us', x]).decode('utf-8')
+            print(X.index(x))
+            new_X.append(ipa.strip())
+
+        return new_X
+
+    def transform(self, X, y=None):
+        X = self.get_ipa(X)
+        return super(IPAVectorizer, self).transform(X, y)
+
+    def fit(self, X, y=None):
+        X = self.get_ipa(X)
+        return super(IPAVectorizer, self).fit(X, y)
 
 
 
