@@ -23,6 +23,7 @@ from sklearn.calibration import CalibratedClassifierCV
 from sklearn.svm import LinearSVC
 from sklearn.pipeline import FeatureUnion
 from sklearn.model_selection import LeaveOneOut
+from sklearn.ensemble import BaggingClassifier, AdaBoostClassifier
 
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -158,7 +159,8 @@ def load_features_and_labels(train_partition, test_partition, training_feature_f
 
     features = FeatureUnion([
         #('word_skipgrams', SkipgramVectorizer(n=2, k=2, base_analyzer='word', binary=True, min_df=5)),
-        ('char_ngrams', TfidfVectorizer(analyzer="word", binary=False))
+        ('char_ngrams', TfidfVectorizer(ngram_range=(1, 9), analyzer="char", binary=True)),
+        ('misspellings', MisspellingVectorizer(ngram_range=(1, 9), analyzer="char", binary=True))
         #('ipa_ngrams', IPAVectorizer(ngram_range=(1, 3), analyzer="word", binary=False)),
         #('pos_ngrams', POSVectorizer(ngram_range=(1, 4), analyzer="word")),
         #('average_word_length', AverageWordLength()),
@@ -404,56 +406,59 @@ if __name__ == '__main__':
     # Check the scikit-learn documentation for other models
     print("Training the classifier...")
 
-    prompt_cross_val(training_matrix, testing_matrix, encoded_training_labels, encoded_test_labels, training_prompts, test_prompts)
+    #prompt_cross_val(training_matrix, testing_matrix, encoded_training_labels, encoded_test_labels, training_prompts, test_prompts)
     #params = [{'C': [1.0, 5.0, 10.0, 25.0, 50.0, 100.0]}]
 
-    #clf = LinearSVC(multi_class='crammer_singer')
+    clf = LinearSVC(multi_class='crammer_singer')
+    #clf = BaggingClassifier(LinearSVC(multi_class='crammer_singer'), max_samples=0.5, max_features=0.5)
+    #clf = AdaBoostClassifier(LinearSVC(multi_class='crammer_singer'), n_estimators=100, algorithm="SAMME")
     #clf = CalibratedClassifierCV(svm)
     #clf = GridSearchCV(estimator=svc, param_grid=params)
 
-    # clf.fit(training_matrix, encoded_training_labels)
-    # predicted = clf.predict(testing_matrix)
+    clf.fit(training_matrix, encoded_training_labels)
+    predicted = clf.predict(testing_matrix)
 
-    #
-    # Reclassify given labels. This uses a stacking approach: a probability disctribution prediction for each label
-    # is used as features. Reusing classify for labels that are often confused may be better than adding to
-    # RECLASSIFY_LABELS.
-    #
+    
+    #Reclassify given labels. This uses a stacking approach: a probability disctribution prediction for each label
+    #is used as features. Reusing classify for labels that are often confused may be better than adding to
+    #RECLASSIFY_LABELS.
+    
     #predicted = reclassify(clf, predicted, training_matrix, testing_matrix, encoded_training_labels)
 
-    #
-    # Write Predictions File
-    #
+    # in the wake of the UK election, that familiar adage st
+    
+    #Write Predictions File
+    
 
-    # labels_file_path = ('{script_dir}/../data/labels/{test}/labels.{test}.csv'
-    #                     .format(script_dir=SCRIPT_DIR, test=test_partition_name))
+    labels_file_path = ('{script_dir}/../data/labels/{test}/labels.{test}.csv'
+                        .format(script_dir=SCRIPT_DIR, test=test_partition_name))
 
-    # predictions_file_name = (strftime("predictions-%Y-%m-%d-%H.%M.%S.csv") 
-    #                          if predictions_outfile_name is None 
-    #                          else predictions_outfile_name)
+    predictions_file_name = (strftime("predictions-%Y-%m-%d-%H.%M.%S.csv") 
+                             if predictions_outfile_name is None 
+                             else predictions_outfile_name)
 
-    # outfile = '{script_dir}/../predictions/essays/{pred_file}'.format(script_dir=SCRIPT_DIR, pred_file=predictions_file_name)
-    # with open(outfile, 'w+', newline='', encoding='utf8') as output_file:
-    #     file_writer = csv.writer(output_file)
-    #     with open(labels_file_path, encoding='utf-8') as labels_file:
-    #         label_rows = [row for row in csv.reader(labels_file)]
-    #         label_rows[0].append('prediction')
-    #         for i, row in enumerate(label_rows[1:]):
-    #             encoded_prediction = predicted[i]
-    #             prediction = CLASS_LABELS[encoded_prediction]
-    #             row.append(prediction)
-    #     file_writer.writerows(label_rows)
+    outfile = '{script_dir}/../predictions/essays/{pred_file}'.format(script_dir=SCRIPT_DIR, pred_file=predictions_file_name)
+    with open(outfile, 'w+', newline='', encoding='utf8') as output_file:
+        file_writer = csv.writer(output_file)
+        with open(labels_file_path, encoding='utf-8') as labels_file:
+            label_rows = [row for row in csv.reader(labels_file)]
+            label_rows[0].append('prediction')
+            for i, row in enumerate(label_rows[1:]):
+                encoded_prediction = predicted[i]
+                prediction = CLASS_LABELS[encoded_prediction]
+                row.append(prediction)
+        file_writer.writerows(label_rows)
 
-    # print("Predictions written to", outfile.replace(SCRIPT_DIR, '')[1:], "(%d lines)" % len(predicted))
+    print("Predictions written to", outfile.replace(SCRIPT_DIR, '')[1:], "(%d lines)" % len(predicted))
 
-    #
-    # Display classification results
-    #
-    # if -1 not in encoded_test_labels:
-    #     print("\nConfusion Matrix:\n")
-    #     cm = metrics.confusion_matrix(encoded_test_labels, predicted).tolist()
-    #     pretty_print_cm(cm, CLASS_LABELS)
-    #     print("\nClassification Results:\n")
-    #     print(metrics.classification_report(encoded_test_labels, predicted, target_names=CLASS_LABELS))
-    # else:
-    #     print("The test set labels aren't known, cannot print accuracy report.")
+    
+    #Display classification results
+    
+    if -1 not in encoded_test_labels:
+        print("\nConfusion Matrix:\n")
+        cm = metrics.confusion_matrix(encoded_test_labels, predicted).tolist()
+        pretty_print_cm(cm, CLASS_LABELS)
+        print("\nClassification Results:\n")
+        print(metrics.classification_report(encoded_test_labels, predicted, target_names=CLASS_LABELS))
+    else:
+        print("The test set labels aren't known, cannot print accuracy report.")

@@ -170,5 +170,20 @@ class IPAVectorizer(TfidfVectorizer):
         X = self.get_ipa(X)
         return super(IPAVectorizer, self).fit(X, y)
 
+class MisspellingVectorizer(TfidfVectorizer):
+    """ Gertjan's suggested feature """
 
+    def get_misspellings(self, X):
+        d = enchant.Dict("en_US")
+        new_X = [[word for word in x.split() if (not d.check(word)) and (word.isalpha())] for x in X]
+        print(new_X)
+        new_X = [' '.join(doc) for doc in new_X]
+        return new_X
 
+    def transform(self, X, y=None):
+        X = self.get_misspellings(X)
+        return super(MisspellingVectorizer, self).transform(X, y)
+
+    def fit(self, X, y=None):
+        X = self.get_misspellings(X)
+        return super(MisspellingVectorizer, self).fit(X, y)
