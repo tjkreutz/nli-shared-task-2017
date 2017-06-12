@@ -18,6 +18,7 @@ from features import *
 from sklearn import metrics
 from sklearn.datasets import dump_svmlight_file, load_svmlight_file
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.preprocessing import Normalizer
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.svm import LinearSVC
@@ -159,11 +160,13 @@ def load_features_and_labels(train_partition, test_partition, training_feature_f
 
     features = FeatureUnion([
         #('word_skipgrams', SkipgramVectorizer(n=2, k=2, base_analyzer='word', binary=True, min_df=5)),
-        ('char_ngrams', TfidfVectorizer(ngram_range=(1, 9), analyzer="char", binary=True)),
-        ('misspellings', MisspellingVectorizer(ngram_range=(1, 9), analyzer="char", binary=True))
+        ('char_ngrams', TfidfVectorizer(ngram_range=(3, 8), analyzer="char", binary=True)),
+        #('misspellings', MisspellingVectorizer(ngram_range=(1, 9), analyzer="char", binary=True))
         #('ipa_ngrams', IPAVectorizer(ngram_range=(1, 3), analyzer="word", binary=False)),
         #('pos_ngrams', POSVectorizer(ngram_range=(1, 4), analyzer="word")),
         #('average_word_length', AverageWordLength()),
+        #('final_letter', FinalLetter(analyzer="char")),
+        
     ])
 
     features.fit(training_data)
