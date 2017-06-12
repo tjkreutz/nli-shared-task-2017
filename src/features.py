@@ -7,6 +7,7 @@ from nltk.tag import pos_tag_sents
 from nltk.util import skipgrams
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import CountVectorizer
 
 
 class AverageWordLength(BaseEstimator, TransformerMixin):
@@ -187,3 +188,18 @@ class MisspellingVectorizer(TfidfVectorizer):
     def fit(self, X, y=None):
         X = self.get_misspellings(X)
         return super(MisspellingVectorizer, self).fit(X, y)
+
+class FinalLetter(CountVectorizer):
+    """ extract final letter """
+
+    def get_letter(self, x):
+        new_X = ' '.join([word[-1:] for word in x.split()])
+        return new_X
+
+    def transform(self, X, y=None):
+        X = [self.get_letter(x) for x in X]
+        return super(FinalLetter, self).transform(X)
+
+    def fit(self, X, y=None):
+        X = [self.get_letter(x) for x in X]
+        return super(FinalLetter, self).fit(X, y)
