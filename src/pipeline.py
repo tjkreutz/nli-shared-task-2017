@@ -13,6 +13,7 @@ import os
 import csv
 import argparse
 import numpy as np
+import pickle
 from time import strftime
 from features import *
 from sklearn import metrics
@@ -21,14 +22,14 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.preprocessing import Normalizer
 from sklearn.calibration import CalibratedClassifierCV
-from sklearn.svm import LinearSVC
+from sklearn.svm import LinearSVC, SVC
 from sklearn.pipeline import FeatureUnion
 from sklearn.model_selection import LeaveOneOut
 from sklearn.ensemble import BaggingClassifier, AdaBoostClassifier
 
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
-CLASS_LABELS = ['ARA', 'CHI', 'FRE', 'GER', 'HIN', 'ITA', 'JPN', 'KOR', 'SPA', 'TEL', 'TUR']  # valid labels
+CLASS_LABELS = ['ARA', 'CHI', 'FRE', 'GER', 'HIN', 'ITA', 'JPN', 'KOR', 'SPA', 'TEL', 'TUR', 'X']  # valid labels
 RECLASSIFY_LABELS = [('HIN', 'TEL')]  # groups of labels we want to reclassify
 PROMPTS = ["P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7"]
 
@@ -160,11 +161,13 @@ def load_features_and_labels(train_partition, test_partition, training_feature_f
 
     features = FeatureUnion([
         #('word_skipgrams', SkipgramVectorizer(n=2, k=2, base_analyzer='word', binary=True, min_df=5)),
-        ('char_ngrams', TfidfVectorizer(ngram_range=(3, 8), analyzer="char", binary=True)),
+        ('char_ngrams', TfidfVectorizer(ngram_range=(1, 2), analyzer="char", binary=True))
+        #('prompt_ngrams', PromptWordVectorizer(ngram_range=(1, 9), analyzer="char", binary=True))
+        #('char_ngrams', TfidfVectorizer(analyzer="word", binary=True))
         #('misspellings', MisspellingVectorizer(ngram_range=(1, 9), analyzer="char", binary=True))
         #('ipa_ngrams', IPAVectorizer(ngram_range=(1, 3), analyzer="word", binary=False)),
         #('pos_ngrams', POSVectorizer(ngram_range=(1, 4), analyzer="word")),
-        #('average_word_length', AverageWordLength()),
+        #('average_word_length', AverageWordLength())
         #('final_letter', FinalLetter(analyzer="char")),
         
     ])
@@ -173,6 +176,7 @@ def load_features_and_labels(train_partition, test_partition, training_feature_f
 
     training_matrix, encoded_training_labels, vectorizer = transform_data(training_data, training_labels, features)
     test_matrix, encoded_test_labels,  _ = transform_data(test_data, test_labels, features)
+
 
     #
     # Write features to feature files
@@ -405,6 +409,18 @@ if __name__ == '__main__':
     training_matrix = transformer.fit_transform(training_matrix)
     testing_matrix = transformer.fit_transform(test_matrix)
 
+    # test_dev_X = np.concatenate((training_matrix, testing_matrix))
+    # test_dev_y = np.concatenate((encoded_training_labels, encoded_test_labels))
+
+    # with open("test_dev_features", "wb") as f:
+    # 	np.save(f, test_dev_X)
+
+    # with open("test_dev_labels", "wb") as j:
+    # 	np.save(j, test_dev_y)
+
+    # test_dev_X = np.load("test_dev_features")
+    # test_dev_y = np.load("test_dev_labels")
+
     # Train the model
     # Check the scikit-learn documentation for other models
     print("Training the classifier...")
@@ -412,13 +428,17 @@ if __name__ == '__main__':
     #prompt_cross_val(training_matrix, testing_matrix, encoded_training_labels, encoded_test_labels, training_prompts, test_prompts)
     #params = [{'C': [1.0, 5.0, 10.0, 25.0, 50.0, 100.0]}]
 
-    clf = LinearSVC(multi_class='crammer_singer')
+    clf = SVC(kernel='linear',probability=True)
+    #clf = LinearSVC(multi_class='crammer_singer')
     #clf = BaggingClassifier(LinearSVC(multi_class='crammer_singer'), max_samples=0.5, max_features=0.5)
     #clf = AdaBoostClassifier(LinearSVC(multi_class='crammer_singer'), n_estimators=100, algorithm="SAMME")
     #clf = CalibratedClassifierCV(svm)
     #clf = GridSearchCV(estimator=svc, param_grid=params)
 
     clf.fit(training_matrix, encoded_training_labels)
+
+    for t in testing_matrix:
+    	print(clf.predict_proba(t))
     predicted = clf.predict(testing_matrix)
 
     
@@ -427,8 +447,6 @@ if __name__ == '__main__':
     #RECLASSIFY_LABELS.
     
     #predicted = reclassify(clf, predicted, training_matrix, testing_matrix, encoded_training_labels)
-
-    # in the wake of the UK election, that familiar adage st
     
     #Write Predictions File
     

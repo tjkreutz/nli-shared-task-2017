@@ -117,7 +117,7 @@ class PromptWordVectorizer(TfidfVectorizer):
             words = doc.split()
             for t in range(len(words)):
                 if words[t] in keywords:
-                    words[t] = '<PW>'
+                    words[t] = ''
             new_X.append(' '.join(words))
         return new_X
 
