@@ -29,7 +29,7 @@ from sklearn.ensemble import BaggingClassifier, AdaBoostClassifier
 
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
-CLASS_LABELS = ['ARA', 'CHI', 'FRE', 'GER', 'HIN', 'ITA', 'JPN', 'KOR', 'SPA', 'TEL', 'TUR', 'X']  # valid labels
+CLASS_LABELS = ['ARA', 'CHI', 'FRE', 'GER', 'HIN', 'ITA', 'JPN', 'KOR', 'SPA', 'TEL', 'TUR']  # valid labels
 RECLASSIFY_LABELS = [('HIN', 'TEL')]  # groups of labels we want to reclassify
 PROMPTS = ["P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7"]
 
@@ -199,8 +199,8 @@ def load_features_and_labels(train_partition, test_partition, training_feature_f
     dump_svmlight_file(test_matrix, encoded_test_labels, outfile)
     print("Wrote testing features to", outfile.replace(SCRIPT_DIR, '')[1:])  # prints file path relative to script location
 
-    return [(training_matrix, encoded_training_labels, training_labels, training_prompts),
-            (test_matrix, encoded_test_labels, test_labels, test_prompts)]
+    return [(training_matrix, encoded_training_labels, training_labels, training_prompts, training_files),
+            (test_matrix, encoded_test_labels, test_labels, test_prompts, test_files)]
 
 
 def transform_data(file_list, labels, features):
@@ -397,8 +397,8 @@ if __name__ == '__main__':
     #
     training_and_test_data = load_features_and_labels(training_partition_name, test_partition_name, feature_file_train, 
                                                       feature_file_test, feature_outfile_name=feature_outfile_name)
-    training_matrix, encoded_training_labels, original_training_labels, training_prompts = training_and_test_data[0]
-    test_matrix, encoded_test_labels, original_test_labels, test_prompts = training_and_test_data[1]
+    training_matrix, encoded_training_labels, original_training_labels, training_prompts, training_files = training_and_test_data[0]
+    test_matrix, encoded_test_labels, original_test_labels, test_prompts, test_files = training_and_test_data[1]
     
     #
     # Run the classifier
@@ -436,11 +436,6 @@ if __name__ == '__main__':
     #clf = GridSearchCV(estimator=svc, param_grid=params)
 
     clf.fit(training_matrix, encoded_training_labels)
-
-    for t in testing_matrix:
-    	print(clf.predict_proba(t))
-    predicted = clf.predict(testing_matrix)
-
     
     #Reclassify given labels. This uses a stacking approach: a probability disctribution prediction for each label
     #is used as features. Reusing classify for labels that are often confused may be better than adding to
@@ -457,6 +452,22 @@ if __name__ == '__main__':
     predictions_file_name = (strftime("predictions-%Y-%m-%d-%H.%M.%S.csv") 
                              if predictions_outfile_name is None 
                              else predictions_outfile_name)
+
+    probs = {}
+
+	for i, t in enumerate(testing_matrix):
+		ps = {}
+    	predicted = clf.predict(testing_matrix)
+    	for i, p in enumerate(predicted):
+    		ps[CLASS_LABELS[i]] = p
+
+    	probs[test_files[i][:-4]] = ps
+    	
+
+    with open("predictions.pkl", "w") as f:
+    	pickle.dump(probs, f)
+
+
 
     outfile = '{script_dir}/../predictions/essays/{pred_file}'.format(script_dir=SCRIPT_DIR, pred_file=predictions_file_name)
     with open(outfile, 'w+', newline='', encoding='utf8') as output_file:
