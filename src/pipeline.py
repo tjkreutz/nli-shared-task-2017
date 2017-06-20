@@ -161,7 +161,8 @@ def load_features_and_labels(train_partition, test_partition, training_feature_f
 
     features = FeatureUnion([
         #('word_skipgrams', SkipgramVectorizer(n=2, k=2, base_analyzer='word', binary=True, min_df=5)),
-        ('char_ngrams', TfidfVectorizer(ngram_range=(1, 2), analyzer="char", binary=True))
+        #('char_ngrams', TfidfVectorizer(analyzer="char", binary=True))
+        ('char_ngrams', TfidfVectorizer(ngram_range=(1,9),analyzer="char", binary=True))
         #('prompt_ngrams', PromptWordVectorizer(ngram_range=(1, 9), analyzer="char", binary=True))
         #('char_ngrams', TfidfVectorizer(analyzer="word", binary=True))
         #('misspellings', MisspellingVectorizer(ngram_range=(1, 9), analyzer="char", binary=True))
@@ -428,15 +429,16 @@ if __name__ == '__main__':
     #prompt_cross_val(training_matrix, testing_matrix, encoded_training_labels, encoded_test_labels, training_prompts, test_prompts)
     #params = [{'C': [1.0, 5.0, 10.0, 25.0, 50.0, 100.0]}]
 
-    clf = SVC(kernel='linear',probability=True)
-    #clf = LinearSVC(multi_class='crammer_singer')
+    #clf = SVC(kernel='linear',probability=True)
+    svm  = LinearSVC(multi_class='crammer_singer')
     #clf = BaggingClassifier(LinearSVC(multi_class='crammer_singer'), max_samples=0.5, max_features=0.5)
     #clf = AdaBoostClassifier(LinearSVC(multi_class='crammer_singer'), n_estimators=100, algorithm="SAMME")
-    #clf = CalibratedClassifierCV(svm)
+    clf = CalibratedClassifierCV(svm)
     #clf = GridSearchCV(estimator=svc, param_grid=params)
 
     clf.fit(training_matrix, encoded_training_labels)
-    
+    predicted = [clf.predict(sample)[0] for sample in testing_matrix]
+
     #Reclassify given labels. This uses a stacking approach: a probability disctribution prediction for each label
     #is used as features. Reusing classify for labels that are often confused may be better than adding to
     #RECLASSIFY_LABELS.
@@ -452,21 +454,21 @@ if __name__ == '__main__':
     predictions_file_name = (strftime("predictions-%Y-%m-%d-%H.%M.%S.csv") 
                              if predictions_outfile_name is None 
                              else predictions_outfile_name)
-
+    
+    
     probs = {}
 
-	for i, t in enumerate(testing_matrix):
-		ps = {}
-    	predicted = clf.predict(testing_matrix)
-    	for i, p in enumerate(predicted):
-    		ps[CLASS_LABELS[i]] = p
+    for i, t in enumerate(testing_matrix):
+        ps = {}
+        preds = clf.predict_proba(t)
+        for j, p in enumerate(preds[0]):
+            ps[CLASS_LABELS[j]] = p
 
-    	probs[test_files[i][:-4]] = ps
+        probs[test_files[i][-9:-4]] = ps
     	
-
-    with open("predictions.pkl", "w") as f:
-    	pickle.dump(probs, f)
-
+    with open("predictions.pkl", "wb") as f:
+    	pickle.dump(probs,f)
+    
 
 
     outfile = '{script_dir}/../predictions/essays/{pred_file}'.format(script_dir=SCRIPT_DIR, pred_file=predictions_file_name)
