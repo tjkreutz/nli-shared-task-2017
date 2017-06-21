@@ -161,7 +161,7 @@ def load_features_and_labels(train_partition, test_partition, training_feature_f
 
     features = FeatureUnion([
         #('word_skipgrams', SkipgramVectorizer(n=2, k=2, base_analyzer='word', binary=True, min_df=5)),
-        ('char_ngrams', TfidfVectorizer(ngram_range=(1,9), analyzer="char", binary=True))
+        ('char_ngrams', TfidfVectorizer(ngram_range=(1,9), analyzer="word", binary=True))
         #('char_ngrams', TfidfVectorizer(analyzer="char", binary=True))
         #('char_ngrams', TfidfVectorizer(ngram_range=(1,9),analyzer="char", binary=True))
         #('prompt_ngrams', PromptWordVectorizer(ngram_range=(1, 9), analyzer="char", binary=True))
@@ -466,7 +466,13 @@ if __name__ == '__main__':
     #clf = GridSearchCV(estimator=svc, param_grid=params)
 
     clf.fit(training_matrix, encoded_training_labels)
-    predicted = clf.predict(testing_matrix)
+    #predicted = clf.predict(testing_matrix)
+
+    print("Doing cross-val on train...")
+    train_probas = train_cross_val(training_matrix, encoded_training_labels)
+    test_probas = [clf.predict_proba(x)[0] for x in testing_matrix]
+    print("Training a meta classifier..")
+    predicted = stacker(train_probas, test_probas, encoded_training_labels)
 
     #Reclassify given labels. This uses a stacking approach: a probability disctribution prediction for each label
     #is used as features. Reusing classify for labels that are often confused may be better than adding to
@@ -484,18 +490,19 @@ if __name__ == '__main__':
                              if predictions_outfile_name is None 
                              else predictions_outfile_name)
     
-    probs = {}
+    # "Writing pickle file..."
+    # probs = {}
 
-    for i, t in enumerate(testing_matrix):
-        ps = {}
-        preds = clf.predict_proba(t)
-        for j, p in enumerate(preds[0]):
-            ps[CLASS_LABELS[j]] = p
+    # for i, t in enumerate(testing_matrix):
+    #     ps = {}
+    #     preds = clf.predict_proba(t)
+    #     for j, p in enumerate(preds[0]):
+    #         ps[CLASS_LABELS[j]] = p
 
-        probs[test_files[i][-9:-4]] = ps
+    #     probs[test_files[i][-9:-4]] = ps
     	
-    with open("test_predictions.pkl", "wb") as f:
-    	pickle.dump(probs,f)
+    # with open("test_predictions.pkl", "wb") as f:
+    # 	pickle.dump(probs,f)
 
 
     outfile = '{script_dir}/../predictions/essays/{pred_file}'.format(script_dir=SCRIPT_DIR, pred_file=predictions_file_name)
