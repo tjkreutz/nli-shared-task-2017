@@ -24,12 +24,12 @@ from sklearn.preprocessing import Normalizer
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.svm import LinearSVC, SVC
 from sklearn.pipeline import FeatureUnion
-from sklearn.model_selection import LeaveOneOut
+from sklearn.model_selection import LeaveOneOut, KFold
 from sklearn.ensemble import BaggingClassifier, AdaBoostClassifier
 
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
-CLASS_LABELS = ['ARA', 'CHI', 'FRE', 'GER', 'HIN', 'ITA', 'JPN', 'KOR', 'SPA', 'TEL', 'TUR']  # valid labels
+CLASS_LABELS = ['ARA', 'CHI', 'FRE', 'GER', 'HIN', 'ITA', 'JPN', 'KOR', 'SPA', 'TEL', 'TUR', 'X']  # valid labels
 RECLASSIFY_LABELS = [('HIN', 'TEL')]  # groups of labels we want to reclassify
 PROMPTS = ["P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7"]
 
@@ -161,7 +161,7 @@ def load_features_and_labels(train_partition, test_partition, training_feature_f
 
     features = FeatureUnion([
         #('word_skipgrams', SkipgramVectorizer(n=2, k=2, base_analyzer='word', binary=True, min_df=5)),
-        ('char_ngrams', TfidfVectorizer(ngram_range=(1, 2), analyzer="char", binary=True))
+        ('char_ngrams', TfidfVectorizer(ngram_range=(1,9), analyzer="char", binary=True))
         #('prompt_ngrams', PromptWordVectorizer(ngram_range=(1, 9), analyzer="char", binary=True))
         #('char_ngrams', TfidfVectorizer(analyzer="word", binary=True))
         #('misspellings', MisspellingVectorizer(ngram_range=(1, 9), analyzer="char", binary=True))
@@ -285,6 +285,34 @@ def reclassify(clf, predicted, training_matrix, test_matrix, encoded_training_la
         predicted = repredict_labels(clf, predicted, labels, training_matrix, test_matrix, encoded_training_labels)
 
     return predicted
+
+def train_cross_val(training_matrix, encoded_training_labels):
+	
+	probas = []
+
+	svm = LinearSVC(multi_class='crammer_singer')
+	clf = CalibratedClassifierCV(svm)
+
+	kf = KFold(n_splits=5)
+	for train_i, test_i in kf.split(training_matrix):
+		print("Train partition: {}\tTest partition: {}".format(train_i, test_i))
+		X_train, X_test = training_matrix[train_i], training_matrix[test_i]
+		y_train, y_test = np.asarray(encoded_training_labels)[train_i], np.asarray(encoded_training_labels)[test_i]
+		clf.fit(X_train, y_train)
+		for sample in X_test:
+			probas.append(clf.predict_proba(sample)[0])
+
+	return probas
+
+def stacker(train_probas, test_probas, encoded_training_labels):
+
+	svm = LinearSVC(multi_class='crammer_singer')
+	clf = CalibratedClassifierCV(svm)
+
+	clf.fit(train_probas, encoded_training_labels)
+	predicted = clf.predict(test_probas)
+
+	return predicted
 
 
 def leave_prompt_out(feature_matrix, labels, prompts, leave_out, include=False):
@@ -428,15 +456,16 @@ if __name__ == '__main__':
     #prompt_cross_val(training_matrix, testing_matrix, encoded_training_labels, encoded_test_labels, training_prompts, test_prompts)
     #params = [{'C': [1.0, 5.0, 10.0, 25.0, 50.0, 100.0]}]
 
-    clf = SVC(kernel='linear',probability=True)
-    #clf = LinearSVC(multi_class='crammer_singer')
+    #clf = SVC(kernel='linear',probability=True)
+    svm = LinearSVC(multi_class='crammer_singer')
     #clf = BaggingClassifier(LinearSVC(multi_class='crammer_singer'), max_samples=0.5, max_features=0.5)
     #clf = AdaBoostClassifier(LinearSVC(multi_class='crammer_singer'), n_estimators=100, algorithm="SAMME")
-    #clf = CalibratedClassifierCV(svm)
+    clf = CalibratedClassifierCV(svm)
     #clf = GridSearchCV(estimator=svc, param_grid=params)
 
     clf.fit(training_matrix, encoded_training_labels)
-    
+    predicted = clf.predict(testing_matrix)
+
     #Reclassify given labels. This uses a stacking approach: a probability disctribution prediction for each label
     #is used as features. Reusing classify for labels that are often confused may be better than adding to
     #RECLASSIFY_LABELS.
@@ -453,21 +482,22 @@ if __name__ == '__main__':
                              if predictions_outfile_name is None 
                              else predictions_outfile_name)
 
+    
     probs = {}
 
 	for i, t in enumerate(testing_matrix):
 		ps = {}
-    	predicted = clf.predict(testing_matrix)
-    	for i, p in enumerate(predicted):
+    	predicted = clf.predict_proba(t)
+    	for i, p in enumerate(predicted[0]):
     		ps[CLASS_LABELS[i]] = p
 
-    	probs[test_files[i][:-4]] = ps
+    	probs[test_files[i][-9:-4]] = ps
     	
 
-    with open("predictions.pkl", "w") as f:
+    with open("test_predictions.pkl", "wb") as f:
     	pickle.dump(probs, f)
 
-
+    
 
     outfile = '{script_dir}/../predictions/essays/{pred_file}'.format(script_dir=SCRIPT_DIR, pred_file=predictions_file_name)
     with open(outfile, 'w+', newline='', encoding='utf8') as output_file:
@@ -486,6 +516,21 @@ if __name__ == '__main__':
     
     #Display classification results
     
+    if -1 not in encoded_test_labels:
+        print("\nConfusion Matrix:\n")
+        cm = metrics.confusion_matrix(encoded_test_labels, predicted).tolist()
+        pretty_print_cm(cm, CLASS_LABELS)
+        print("\nClassification Results:\n")
+        print(metrics.classification_report(encoded_test_labels, predicted, target_names=CLASS_LABELS))
+    else:
+        print("The test set labels aren't known, cannot print accuracy report.")
+
+    print("Doing cross-val on train...")
+    train_probas = train_cross_val(training_matrix, encoded_training_labels)
+    test_probas = [clf.predict_proba(x)[0] for x in testing_matrix]
+    print("Training a meta classifier..")
+    predicted = stacker(train_probas, test_probas, encoded_training_labels)
+
     if -1 not in encoded_test_labels:
         print("\nConfusion Matrix:\n")
         cm = metrics.confusion_matrix(encoded_test_labels, predicted).tolist()
