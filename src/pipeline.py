@@ -161,8 +161,8 @@ def load_features_and_labels(train_partition, test_partition, training_feature_f
 
     features = FeatureUnion([
         #('word_skipgrams', SkipgramVectorizer(n=2, k=2, base_analyzer='word', binary=True, min_df=5)),
-        ('char_ngrams', TfidfVectorizer(ngram_range=(1,9), analyzer="word", binary=True))
-        #('char_ngrams', TfidfVectorizer(analyzer="char", binary=True))
+        ('char_ngrams', TfidfVectorizer(ngram_range=(1,9), analyzer="char", binary=True))
+        #('char_ngrams', TfidfVectorizer(analyzer="word", binary=True))
         #('char_ngrams', TfidfVectorizer(ngram_range=(1,9),analyzer="char", binary=True))
         #('prompt_ngrams', PromptWordVectorizer(ngram_range=(1, 9), analyzer="char", binary=True))
         #('char_ngrams', TfidfVectorizer(analyzer="word", binary=True))
