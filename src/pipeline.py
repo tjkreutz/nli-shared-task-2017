@@ -116,7 +116,7 @@ def load_features_and_labels(train_partition, test_partition, training_feature_f
                                                 for row in csv.DictReader(train_labels_f)])
 
         test_files, test_labels, test_prompts = zip(*[(os.path.join(essay_path_test, row['test_taker_id'] + '.txt'), row['L1'], row['essay_prompt'])
-                                        for row in csv.DictReader(test_labels_f) if row["essay_prompt"] != "P7"])
+                                        for row in csv.DictReader(test_labels_f)])
     
     #
     #  Verify that either both or neither of training/test feature files are provided
@@ -288,6 +288,39 @@ def reclassify(clf, predicted, training_matrix, test_matrix, encoded_training_la
 
     return predicted
 
+def dict_to_proba(path):
+	f = open(path, "rb")
+	raw = pickle.load(f)
+	probs = [[raw[k][j] for j in raw[k].keys()] for k in raw.keys()]
+
+	return probs
+
+def proba_to_dict(matrix, clf, labels, test_files):
+	probs = {}
+
+	for i, t in enumerate(matrix):
+		ps = {}
+		preds = clf.predict_proba(t)
+		for j, p in enumerate(preds[0]):
+			ps[labels[j]] = p
+
+		probs[test_files[i][-9:-4]] = ps
+    	
+	with open("test_predictions.pkl", "wb") as f:
+		pickle.dump(probs,f)
+def add_probas(matrix1, matrix2):
+
+	combined = []
+
+	if len(matrix1) == len(matrix2):
+		for i, probas in enumerate(matrix1):
+			combined.append(matrix1[i]+matrix2[i])
+
+		return combined
+	else:
+		print("Prob arrays don't match...")
+
+
 def train_cross_val(training_matrix, encoded_training_labels):
 	
 	probas = []
@@ -439,47 +472,33 @@ if __name__ == '__main__':
     training_matrix = transformer.fit_transform(training_matrix)
     testing_matrix = transformer.fit_transform(test_matrix)
 
-    # test_dev_X = np.concatenate((training_matrix, testing_matrix))
-    # test_dev_y = np.concatenate((encoded_training_labels, encoded_test_labels))
-
-    # with open("test_dev_features", "wb") as f:
-    # 	np.save(f, test_dev_X)
-
-    # with open("test_dev_labels", "wb") as j:
-    # 	np.save(j, test_dev_y)
-
-    # test_dev_X = np.load("test_dev_features")
-    # test_dev_y = np.load("test_dev_labels")
-
     # Train the model
     # Check the scikit-learn documentation for other models
     print("Training the classifier...")
 
-    #prompt_cross_val(training_matrix, testing_matrix, encoded_training_labels, encoded_test_labels, training_prompts, test_prompts)
-    #params = [{'C': [1.0, 5.0, 10.0, 25.0, 50.0, 100.0]}]
-
     #clf = SVC(kernel='linear',probability=True)
     svm = LinearSVC(multi_class='crammer_singer')
-    #clf = BaggingClassifier(LinearSVC(multi_class='crammer_singer'), max_samples=0.5, max_features=0.5)
-    #clf = AdaBoostClassifier(LinearSVC(multi_class='crammer_singer'), n_estimators=100, algorithm="SAMME")
     clf = CalibratedClassifierCV(svm)
-    #clf = GridSearchCV(estimator=svc, param_grid=params)
 
     clf.fit(training_matrix, encoded_training_labels)
-    predicted = clf.predict(testing_matrix)
+    #predicted = clf.predict(testing_matrix)
 
-    # print("Doing cross-val on train...")
-    # train_probas = train_cross_val(training_matrix, encoded_training_labels)
-    # test_probas = [clf.predict_proba(x)[0] for x in testing_matrix]
-    # print("Training a meta classifier..")
-    # predicted = stacker(train_probas, test_probas, encoded_training_labels)
+    print("Doing cross-val on train...")
+    train_probas = train_cross_val(training_matrix, encoded_training_labels)
+    test_probas = [clf.predict_proba(x)[0] for x in testing_matrix]
 
-    #Reclassify given labels. This uses a stacking approach: a probability disctribution prediction for each label
-    #is used as features. Reusing classify for labels that are often confused may be better than adding to
-    #RECLASSIFY_LABELS.
-    
-    #predicted = reclassify(clf, predicted, training_matrix, testing_matrix, encoded_training_labels)
-    
+    print("Adding CBOW probabilities...")
+    cbow_train = []
+    for i in range(1, 6):
+    	cbow_train.extend(dict_to_proba("../misc/f{}_test-fold-{}-train-cbow-512-probs.pickle".format(i,i)))
+    cbow_test = dict_to_proba("../misc/dev-train-cbow-512-bs50-e20-traineradam-dropout0.1-s113-probs.pickle")
+
+    combined_train = add_probas(train_probas, cbow_train)
+    combined_test = add_probas(test_probas, cbow_test)
+
+    print("Training a meta classifier..")
+    predicted = stacker(combined_train, combined_test, encoded_training_labels)
+
     #Write Predictions File
     
 
@@ -490,19 +509,7 @@ if __name__ == '__main__':
                              if predictions_outfile_name is None 
                              else predictions_outfile_name)
     
-    # "Writing pickle file..."
-    # probs = {}
 
-    # for i, t in enumerate(testing_matrix):
-    #     ps = {}
-    #     preds = clf.predict_proba(t)
-    #     for j, p in enumerate(preds[0]):
-    #         ps[CLASS_LABELS[j]] = p
-
-    #     probs[test_files[i][-9:-4]] = ps
-    	
-    # with open("test_predictions.pkl", "wb") as f:
-    # 	pickle.dump(probs,f)
 
 
     outfile = '{script_dir}/../predictions/essays/{pred_file}'.format(script_dir=SCRIPT_DIR, pred_file=predictions_file_name)
