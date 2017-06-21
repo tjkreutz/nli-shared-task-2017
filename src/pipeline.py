@@ -29,7 +29,7 @@ from sklearn.ensemble import BaggingClassifier, AdaBoostClassifier
 
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
-CLASS_LABELS = ['ARA', 'CHI', 'FRE', 'GER', 'HIN', 'ITA', 'JPN', 'KOR', 'SPA', 'TEL', 'TUR', 'X']  # valid labels
+CLASS_LABELS = ['ARA', 'CHI', 'FRE', 'GER', 'HIN', 'ITA', 'JPN', 'KOR', 'SPA', 'TEL', 'TUR']  # valid labels
 RECLASSIFY_LABELS = [('HIN', 'TEL')]  # groups of labels we want to reclassify
 PROMPTS = ["P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7"]
 
@@ -116,7 +116,7 @@ def load_features_and_labels(train_partition, test_partition, training_feature_f
                                                 for row in csv.DictReader(train_labels_f)])
 
         test_files, test_labels, test_prompts = zip(*[(os.path.join(essay_path_test, row['test_taker_id'] + '.txt'), row['L1'], row['essay_prompt'])
-                                        for row in csv.DictReader(test_labels_f)])
+                                        for row in csv.DictReader(test_labels_f) if row["essay_prompt"] != "P7"])
     
     #
     #  Verify that either both or neither of training/test feature files are provided
@@ -466,13 +466,13 @@ if __name__ == '__main__':
     #clf = GridSearchCV(estimator=svc, param_grid=params)
 
     clf.fit(training_matrix, encoded_training_labels)
-    #predicted = clf.predict(testing_matrix)
+    predicted = clf.predict(testing_matrix)
 
-    print("Doing cross-val on train...")
-    train_probas = train_cross_val(training_matrix, encoded_training_labels)
-    test_probas = [clf.predict_proba(x)[0] for x in testing_matrix]
-    print("Training a meta classifier..")
-    predicted = stacker(train_probas, test_probas, encoded_training_labels)
+    # print("Doing cross-val on train...")
+    # train_probas = train_cross_val(training_matrix, encoded_training_labels)
+    # test_probas = [clf.predict_proba(x)[0] for x in testing_matrix]
+    # print("Training a meta classifier..")
+    # predicted = stacker(train_probas, test_probas, encoded_training_labels)
 
     #Reclassify given labels. This uses a stacking approach: a probability disctribution prediction for each label
     #is used as features. Reusing classify for labels that are often confused may be better than adding to

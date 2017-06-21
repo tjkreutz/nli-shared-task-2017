@@ -111,7 +111,7 @@ class PromptWordVectorizer(TfidfVectorizer):
 
     def filterpw(self, X):
         new_X = []
-        with open("keywords.json", "r") as f:
+        with open("keywords_P7.json", "r") as f:
             keywords = json.load(f)
         for doc in X:
             words = doc.split()
