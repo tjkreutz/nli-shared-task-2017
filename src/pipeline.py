@@ -162,7 +162,7 @@ def load_features_and_labels(train_partition, test_partition, training_feature_f
     features = FeatureUnion([
         #('word_skipgrams', SkipgramVectorizer(n=2, k=2, base_analyzer='word', binary=True, min_df=5)),
         ('char_ngrams', TfidfVectorizer(ngram_range=(1,9), analyzer="char", binary=True))
-        #('char_ngrams', TfidfVectorizer(analyzer="word", binary=True))
+        #('char_ngrams', TfidfVectorizer(ngram_range=(1,3), analyzer="word", binary=True))
         #('char_ngrams', TfidfVectorizer(ngram_range=(1,9),analyzer="char", binary=True))
         #('prompt_ngrams', PromptWordVectorizer(ngram_range=(1, 9), analyzer="char", binary=True))
         #('char_ngrams', TfidfVectorizer(analyzer="word", binary=True))
@@ -489,8 +489,9 @@ if __name__ == '__main__':
 
     print("Adding CBOW probabilities...")
     cbow_train = []
-    for i in range(1, 6):
-    	cbow_train.extend(dict_to_proba("../misc/f{}_test-fold-{}-train-cbow-512-probs.pickle".format(i,i)))
+    #for i in range(1, 6):
+    #	cbow_train.extend(dict_to_proba("../misc/f{}_test-fold-{}-train-cbow-512-probs.pickle".format(i,i)))
+    cbow_train = dict_to_proba("../misc/train_cbow.pickle")
     cbow_test = dict_to_proba("../misc/dev-train-cbow-512-bs50-e20-traineradam-dropout0.1-s113-probs.pickle")
 
     combined_train = add_probas(train_probas, cbow_train)
