@@ -1,12 +1,12 @@
 import pickle
 
-cbow_train = {}
-for i in range(1, 6):
-	f = open("../misc/f{}_test-fold-{}-train-cbow-512-probs.pickle".format(i,i), "rb")
-	fold_dict = pickle.load(f)
-	cbow_train.update(fold_dict)
+with open("train_cbow.pickle", "rb") as f:
+	train_probs = pickle.load(f)
 
-with open("train_cbow.pickle", "wb") as g:
-	pickle.dump(cbow_train, g)
+with open("dev-train-cbow-512-bs50-e20-traineradam-dropout0.1-s113-probs.pickle", "rb") as f:
+	dev_probs = pickle.load(f)
 
+train_probs.update(dev_probs)
+with open("train_dev_cbow.pickle", "wb") as f:
+	pickle.dump(train_probs, f)
 # probys = [[probs[k][j] for j in probs[k].keys()] for k in probs.keys()]
