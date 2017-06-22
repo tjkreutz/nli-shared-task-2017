@@ -29,7 +29,7 @@ from sklearn.ensemble import BaggingClassifier, AdaBoostClassifier
 
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
-CLASS_LABELS = ['ARA', 'CHI', 'FRE', 'GER', 'HIN', 'ITA', 'JPN', 'KOR', 'SPA', 'TEL', 'TUR']  # valid labels
+CLASS_LABELS = ['ARA', 'CHI', 'FRE', 'GER', 'HIN', 'ITA', 'JPN', 'KOR', 'SPA', 'TEL', 'TUR', 'X']  # valid labels
 RECLASSIFY_LABELS = [('HIN', 'TEL')]  # groups of labels we want to reclassify
 PROMPTS = ["P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7"]
 
@@ -162,7 +162,7 @@ def load_features_and_labels(train_partition, test_partition, training_feature_f
     features = FeatureUnion([
         #('word_skipgrams', SkipgramVectorizer(n=2, k=2, base_analyzer='word', binary=True, min_df=5)),
         ('char_ngrams', TfidfVectorizer(ngram_range=(1,9), analyzer="char", binary=True))
-        #('char_ngrams', TfidfVectorizer(ngram_range=(1,3), analyzer="word", binary=True))
+        #('char_ngrams', TfidfVectorizer(analyzer="word", binary=True))
         #('char_ngrams', TfidfVectorizer(ngram_range=(1,9),analyzer="char", binary=True))
         #('prompt_ngrams', PromptWordVectorizer(ngram_range=(1, 9), analyzer="char", binary=True))
         #('char_ngrams', TfidfVectorizer(analyzer="word", binary=True))
@@ -288,12 +288,15 @@ def reclassify(clf, predicted, training_matrix, test_matrix, encoded_training_la
 
     return predicted
 
-def dict_to_proba(path):
-	f = open(path, "rb")
-	raw = pickle.load(f)
-	probs = [[raw[k][j] for j in raw[k].keys()] for k in raw.keys()]
-
-	return probs
+def dict_to_proba(path, sorted):
+    f = open(path, "rb")
+    raw = pickle.load(f)
+    if (sorted):
+        probs = [[raw[k][j] for j in raw[k].keys()] for k in sorted(raw.keys())]
+        
+    else:
+        probs = [[raw[k][j] for j in raw[k].keys()] for k in raw.keys()]
+    return probs
 
 def proba_to_dict(matrix, clf, labels, test_files):
 	probs = {}
@@ -491,8 +494,11 @@ if __name__ == '__main__':
     cbow_train = []
     #for i in range(1, 6):
     #	cbow_train.extend(dict_to_proba("../misc/f{}_test-fold-{}-train-cbow-512-probs.pickle".format(i,i)))
-    cbow_train = dict_to_proba("../misc/train_cbow.pickle")
-    cbow_test = dict_to_proba("../misc/dev-train-cbow-512-bs50-e20-traineradam-dropout0.1-s113-probs.pickle")
+    cbow_train = dict_to_proba("../misc/train_dev_cbow.pickle", sorted=False)
+    f = open("../misc/test-train+dev-cbow-512-bs50-e20-traineradam-dropout0.1-s113-probs.pickle", "rb")
+    raw = pickle.load(f)
+    cbow_test = probs = [[raw[k][j] for j in raw[k].keys()] for k in sorted(raw.keys())]
+    #cbow_test = dict_to_proba("../misc/test-train+dev-cbow-512-bs50-e20-traineradam-dropout0.1-s113-probs.pickle", sorted=True)
 
     combined_train = add_probas(train_probas, cbow_train)
     combined_test = add_probas(test_probas, cbow_test)
