@@ -479,79 +479,65 @@ if __name__ == '__main__':
     # Check the scikit-learn documentation for other models
     print("Training the classifier...")
 
-    #clf = SVC(kernel='linear',probability=True)
-    svm = LinearSVC(multi_class='crammer_singer')
-    clf = CalibratedClassifierCV(svm)
+    prompt_cross_val(training_matrix, testing_matrix, encoded_training_labels, encoded_test_labels, training_prompts, test_prompts, keep_in_dev=True)
 
-    clf.fit(training_matrix, encoded_training_labels)
-    #predicted = clf.predict(testing_matrix)
+    # #clf = SVC(kernel='linear',probability=True)
+    # svm = LinearSVC(multi_class='crammer_singer')
+    # clf = CalibratedClassifierCV(svm)
 
-    print("Doing cross-val on train...")
-    train_probas = train_cross_val(training_matrix, encoded_training_labels)
-    test_probas = [clf.predict_proba(x)[0] for x in testing_matrix]
-
-    print("Adding CBOW probabilities...")
-    cbow_train = []
-    #for i in range(1, 6):
-    #	cbow_train.extend(dict_to_proba("../misc/f{}_test-fold-{}-train-cbow-512-probs.pickle".format(i,i)))
-    cbow_train = dict_to_proba("../misc/train_dev_cbow.pickle", sorted=False)
-    f = open("../misc/test-train+dev-cbow-512-bs50-e20-traineradam-dropout0.1-s113-probs.pickle", "rb")
-    raw = pickle.load(f)
-    cbow_test = probs = [[raw[k][j] for j in raw[k].keys()] for k in sorted(raw.keys())]
-    #cbow_test = dict_to_proba("../misc/test-train+dev-cbow-512-bs50-e20-traineradam-dropout0.1-s113-probs.pickle", sorted=True)
-
-    combined_train = add_probas(train_probas, cbow_train)
-    combined_test = add_probas(test_probas, cbow_test)
-
-    print("Training a meta classifier..")
-    predicted = stacker(combined_train, combined_test, encoded_training_labels)
-
-    #Write Predictions File
-    
-
-    labels_file_path = ('{script_dir}/../data/labels/{test}/labels.{test}.csv'
-                        .format(script_dir=SCRIPT_DIR, test=test_partition_name))
-
-    predictions_file_name = (strftime("predictions-%Y-%m-%d-%H.%M.%S.csv") 
-                             if predictions_outfile_name is None 
-                             else predictions_outfile_name)
-    
-
-
-
-    outfile = '{script_dir}/../predictions/essays/{pred_file}'.format(script_dir=SCRIPT_DIR, pred_file=predictions_file_name)
-    with open(outfile, 'w+', newline='', encoding='utf8') as output_file:
-        file_writer = csv.writer(output_file)
-        with open(labels_file_path, encoding='utf-8') as labels_file:
-            label_rows = [row for row in csv.reader(labels_file)]
-            label_rows[0].append('prediction')
-            for i, row in enumerate(label_rows[1:]):
-                encoded_prediction = predicted[i]
-                prediction = CLASS_LABELS[encoded_prediction]
-                row.append(prediction)
-        file_writer.writerows(label_rows)
-
-    print("Predictions written to", outfile.replace(SCRIPT_DIR, '')[1:], "(%d lines)" % len(predicted))
-
-    
-    #Display classification results
-    
-    if -1 not in encoded_test_labels:
-        print("\nConfusion Matrix:\n")
-        cm = metrics.confusion_matrix(encoded_test_labels, predicted).tolist()
-        pretty_print_cm(cm, CLASS_LABELS)
-        print("\nClassification Results:\n")
-        print(metrics.classification_report(encoded_test_labels, predicted, target_names=CLASS_LABELS))
-    else:
-        print("The test set labels aren't known, cannot print accuracy report.")
-
+    # clf.fit(training_matrix, encoded_training_labels)
+    # #predicted = clf.predict(testing_matrix)
 
     # print("Doing cross-val on train...")
     # train_probas = train_cross_val(training_matrix, encoded_training_labels)
     # test_probas = [clf.predict_proba(x)[0] for x in testing_matrix]
-    # print("Training a meta classifier..")
-    # predicted = stacker(train_probas, test_probas, encoded_training_labels)
 
+    # # print("Adding CBOW probabilities...")
+    # # cbow_train = []
+    # # #for i in range(1, 6):
+    # # #	cbow_train.extend(dict_to_proba("../misc/f{}_test-fold-{}-train-cbow-512-probs.pickle".format(i,i)))
+    # # cbow_train = dict_to_proba("../misc/train_dev_cbow.pickle", sorted=False)
+    # # f = open("../misc/test-train+dev-cbow-512-bs50-e20-traineradam-dropout0.1-s113-probs.pickle", "rb")
+    # # raw = pickle.load(f)
+    # # cbow_test = probs = [[raw[k][j] for j in raw[k].keys()] for k in sorted(raw.keys())]
+    # # #cbow_test = dict_to_proba("../misc/test-train+dev-cbow-512-bs50-e20-traineradam-dropout0.1-s113-probs.pickle", sorted=True)
+
+    # # combined_train = add_probas(train_probas, cbow_train)
+    # # combined_test = add_probas(test_probas, cbow_test)
+
+    # print("Training a meta classifier..")
+    # predicted = stacker(combined_train, combined_test, encoded_training_labels)
+
+    # #Write Predictions File
+    
+
+    # labels_file_path = ('{script_dir}/../data/labels/{test}/labels.{test}.csv'
+    #                     .format(script_dir=SCRIPT_DIR, test=test_partition_name))
+
+    # predictions_file_name = (strftime("predictions-%Y-%m-%d-%H.%M.%S.csv") 
+    #                          if predictions_outfile_name is None 
+    #                          else predictions_outfile_name)
+    
+
+
+
+    # outfile = '{script_dir}/../predictions/essays/{pred_file}'.format(script_dir=SCRIPT_DIR, pred_file=predictions_file_name)
+    # with open(outfile, 'w+', newline='', encoding='utf8') as output_file:
+    #     file_writer = csv.writer(output_file)
+    #     with open(labels_file_path, encoding='utf-8') as labels_file:
+    #         label_rows = [row for row in csv.reader(labels_file)]
+    #         label_rows[0].append('prediction')
+    #         for i, row in enumerate(label_rows[1:]):
+    #             encoded_prediction = predicted[i]
+    #             prediction = CLASS_LABELS[encoded_prediction]
+    #             row.append(prediction)
+    #     file_writer.writerows(label_rows)
+
+    # print("Predictions written to", outfile.replace(SCRIPT_DIR, '')[1:], "(%d lines)" % len(predicted))
+
+    
+    # #Display classification results
+    
     # if -1 not in encoded_test_labels:
     #     print("\nConfusion Matrix:\n")
     #     cm = metrics.confusion_matrix(encoded_test_labels, predicted).tolist()
@@ -561,3 +547,18 @@ if __name__ == '__main__':
     # else:
     #     print("The test set labels aren't known, cannot print accuracy report.")
 
+
+    # # print("Doing cross-val on train...")
+    # # train_probas = train_cross_val(training_matrix, encoded_training_labels)
+    # # test_probas = [clf.predict_proba(x)[0] for x in testing_matrix]
+    # # print("Training a meta classifier..")
+    # # predicted = stacker(train_probas, test_probas, encoded_training_labels)
+
+    # # if -1 not in encoded_test_labels:
+    # #     print("\nConfusion Matrix:\n")
+    # #     cm = metrics.confusion_matrix(encoded_test_labels, predicted).tolist()
+    # #     pretty_print_cm(cm, CLASS_LABELS)
+    # #     print("\nClassification Results:\n")
+    # #     print(metrics.classification_report(encoded_test_labels, predicted, target_names=CLASS_LABELS))
+    # # else:
+    # #     print("The test set labels aren't known, cannot print accuracy report.")
