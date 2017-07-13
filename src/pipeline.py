@@ -29,7 +29,7 @@ from sklearn.ensemble import BaggingClassifier, AdaBoostClassifier
 
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
-CLASS_LABELS = ['ARA', 'CHI', 'FRE', 'GER', 'HIN', 'ITA', 'JPN', 'KOR', 'SPA', 'TEL', 'TUR', 'X']  # valid labels
+CLASS_LABELS = ['ARA', 'CHI', 'FRE', 'GER', 'HIN', 'ITA', 'JPN', 'KOR', 'SPA', 'TEL', 'TUR']  # valid labels
 RECLASSIFY_LABELS = [('HIN', 'TEL')]  # groups of labels we want to reclassify
 PROMPTS = ["P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7"]
 
@@ -311,6 +311,7 @@ def proba_to_dict(matrix, clf, labels, test_files):
     	
 	with open("test_predictions.pkl", "wb") as f:
 		pickle.dump(probs,f)
+
 def add_probas(matrix1, matrix2):
 
 	combined = []
@@ -479,14 +480,16 @@ if __name__ == '__main__':
     # Check the scikit-learn documentation for other models
     print("Training the classifier...")
 
-    prompt_cross_val(training_matrix, testing_matrix, encoded_training_labels, encoded_test_labels, training_prompts, test_prompts, keep_in_dev=True)
+    #clf = SVC(kernel='linear',probability=True)
+    svm = LinearSVC(multi_class='crammer_singer')
+	clf = CalibratedClassifierCV(svm)
 
-    # #clf = SVC(kernel='linear',probability=True)
-    # svm = LinearSVC(multi_class='crammer_singer')
-    # clf = CalibratedClassifierCV(svm)
+    clf.fit(training_matrix, encoded_training_labels)
 
-    # clf.fit(training_matrix, encoded_training_labels)
-    # #predicted = clf.predict(testing_matrix)
+    train_probas = train_cross_val(training_matrix, encoded_training_labels)
+    test_probas = clf.predict(testing_matrix)
+
+    predicted = stacker(train_probas, test_probas, encoded_training_labels)
 
     # print("Doing cross-val on train...")
     # train_probas = train_cross_val(training_matrix, encoded_training_labels)
@@ -511,41 +514,41 @@ if __name__ == '__main__':
     # #Write Predictions File
     
 
-    # labels_file_path = ('{script_dir}/../data/labels/{test}/labels.{test}.csv'
-    #                     .format(script_dir=SCRIPT_DIR, test=test_partition_name))
+    labels_file_path = ('{script_dir}/../data/labels/{test}/labels.{test}.csv'
+                        .format(script_dir=SCRIPT_DIR, test=test_partition_name))
 
-    # predictions_file_name = (strftime("predictions-%Y-%m-%d-%H.%M.%S.csv") 
-    #                          if predictions_outfile_name is None 
-    #                          else predictions_outfile_name)
+    predictions_file_name = (strftime("predictions-%Y-%m-%d-%H.%M.%S.csv") 
+                             if predictions_outfile_name is None 
+                             else predictions_outfile_name)
     
 
 
 
-    # outfile = '{script_dir}/../predictions/essays/{pred_file}'.format(script_dir=SCRIPT_DIR, pred_file=predictions_file_name)
-    # with open(outfile, 'w+', newline='', encoding='utf8') as output_file:
-    #     file_writer = csv.writer(output_file)
-    #     with open(labels_file_path, encoding='utf-8') as labels_file:
-    #         label_rows = [row for row in csv.reader(labels_file)]
-    #         label_rows[0].append('prediction')
-    #         for i, row in enumerate(label_rows[1:]):
-    #             encoded_prediction = predicted[i]
-    #             prediction = CLASS_LABELS[encoded_prediction]
-    #             row.append(prediction)
-    #     file_writer.writerows(label_rows)
+    outfile = '{script_dir}/../predictions/essays/{pred_file}'.format(script_dir=SCRIPT_DIR, pred_file=predictions_file_name)
+    with open(outfile, 'w+', newline='', encoding='utf8') as output_file:
+        file_writer = csv.writer(output_file)
+        with open(labels_file_path, encoding='utf-8') as labels_file:
+            label_rows = [row for row in csv.reader(labels_file)]
+            label_rows[0].append('prediction')
+            for i, row in enumerate(label_rows[1:]):
+                encoded_prediction = predicted[i]
+                prediction = CLASS_LABELS[encoded_prediction]
+                row.append(prediction)
+        file_writer.writerows(label_rows)
 
-    # print("Predictions written to", outfile.replace(SCRIPT_DIR, '')[1:], "(%d lines)" % len(predicted))
+    print("Predictions written to", outfile.replace(SCRIPT_DIR, '')[1:], "(%d lines)" % len(predicted))
 
     
-    # #Display classification results
+    #Display classification results
     
-    # if -1 not in encoded_test_labels:
-    #     print("\nConfusion Matrix:\n")
-    #     cm = metrics.confusion_matrix(encoded_test_labels, predicted).tolist()
-    #     pretty_print_cm(cm, CLASS_LABELS)
-    #     print("\nClassification Results:\n")
-    #     print(metrics.classification_report(encoded_test_labels, predicted, target_names=CLASS_LABELS))
-    # else:
-    #     print("The test set labels aren't known, cannot print accuracy report.")
+    if -1 not in encoded_test_labels:
+        print("\nConfusion Matrix:\n")
+        cm = metrics.confusion_matrix(encoded_test_labels, predicted).tolist()
+        pretty_print_cm(cm, CLASS_LABELS)
+        print("\nClassification Results:\n")
+        print(metrics.classification_report(encoded_test_labels, predicted, target_names=CLASS_LABELS, digits=4))
+    else:
+        print("The test set labels aren't known, cannot print accuracy report.")
 
 
     # # print("Doing cross-val on train...")
