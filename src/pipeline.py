@@ -14,6 +14,7 @@ import csv
 import argparse
 import numpy as np
 import pickle
+#import random
 from time import strftime
 from features import *
 from sklearn import metrics
@@ -161,8 +162,8 @@ def load_features_and_labels(train_partition, test_partition, training_feature_f
 
     features = FeatureUnion([
         #('word_skipgrams', SkipgramVectorizer(n=2, k=2, base_analyzer='word', binary=True, min_df=5)),
-        ('char_ngrams', TfidfVectorizer(ngram_range=(1,9), analyzer="char", binary=True))
-        #('char_ngrams', TfidfVectorizer(analyzer="word", binary=True))
+        ('char_ngrams', TfidfVectorizer(ngram_range=(1,11), analyzer="char", binary=True))
+        #('char_ngrams', CountVectorizer(analyzer="word"))
         #('char_ngrams', TfidfVectorizer(ngram_range=(1,9),analyzer="char", binary=True))
         #('prompt_ngrams', PromptWordVectorizer(ngram_range=(1, 9), analyzer="char", binary=True))
         #('char_ngrams', TfidfVectorizer(analyzer="word", binary=True))
@@ -480,16 +481,15 @@ if __name__ == '__main__':
     # Check the scikit-learn documentation for other models
     print("Training the classifier...")
 
-    #clf = SVC(kernel='linear',probability=True)
     svm = LinearSVC(multi_class='crammer_singer')
-	clf = CalibratedClassifierCV(svm)
+    clf = CalibratedClassifierCV(svm)
 
     clf.fit(training_matrix, encoded_training_labels)
 
-    train_probas = train_cross_val(training_matrix, encoded_training_labels)
-    test_probas = clf.predict(testing_matrix)
+    #train_probas = train_cross_val(training_matrix, encoded_training_labels)
+    predicted = clf.predict(testing_matrix)
 
-    predicted = stacker(train_probas, test_probas, encoded_training_labels)
+	# predicted = stacker(train_probas, test_probas, encoded_training_labels)
 
     # print("Doing cross-val on train...")
     # train_probas = train_cross_val(training_matrix, encoded_training_labels)
@@ -521,8 +521,6 @@ if __name__ == '__main__':
                              if predictions_outfile_name is None 
                              else predictions_outfile_name)
     
-
-
 
     outfile = '{script_dir}/../predictions/essays/{pred_file}'.format(script_dir=SCRIPT_DIR, pred_file=predictions_file_name)
     with open(outfile, 'w+', newline='', encoding='utf8') as output_file:
